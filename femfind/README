@@ -1,0 +1,455 @@
+INTRODUCTION
+
+Nowadays many networks run with Windows clients. The primary mechanism
+for public or restricted file sharing in such an environment is to use the
+built-in sharing mechanism of Windows which makes it possible to share
+any directory over a network. This mechanism can also be used on most UNIX
+system to communicate with Windows clients, thanks to the Samba project.
+For more on Samba check out [0].
+
+With Windows it is possible to search for a file on a given server. This is a
+feasible solution for networks with a primary file server which contains all
+files the user needs, which is usually the case in company networks. In other
+environments, for example campus networks, it is usually not known on which
+host the file is located. Another scenario might be a network where the
+primary fileserver is mirrored by a few backup servers. Should the primary
+server fail it might take a while to find out on which backup server a
+particular file is located.
+
+This is where FemFind comes into play. FemFind consists of several perl scripts.
+At certain intervals all shares are crawled and the filenames are stored
+in a database. FTP servers can also be crawled. At any time the user can
+search for a file either via a WWW interface or with a Windows client.
+
+FemFind is currently being used within FeM-Net [1], the students' campus LAN at
+Technical University Ilmenau, where it has been running for over a year.
+
+
+INTERNALS
+
+The crawler (crawler.pl) is invoked at certain times each day via crontab
+entries. There are two distinct modes of operation for the crawler:
+'complete crawl' and 'incremental crawl'. The differences between these modes
+will become clear later on. crawler.pl expects a command line argument which
+tells it in which mode to run (-c, --complete or -i, --incremental).
+The perl script relies on Samba to handle the SMB communciation. It calls
+smbclient and nmblookup.
+
+First, the crawler contacts the masterbrowser and retrieves a list of the active
+hosts in all workgroups. If the crawler is running in 'complete crawl' mode
+it contacts a host if it is listed in the database without a PreferedTime
+set or if it is not listed in the database yet, but currently online (as
+determined by the masterbrowser's list). These hosts are crawled, and their
+share structure is stored or updated in the database. A complete crawl should
+be done daily.
+
+When the script gets called in 'incremental crawl' mode, the hosts to be crawled
+are determined as follows: Based on the current time a time frame is calculated.
+For each host that is already stored in the database, the PreferedTime field
+is checked. If it falls in the time frame the host will be crawled. In addition
+to this, all hosts that are currently online but not yet included in the
+database will also be crawled. Incremental crawls should be run a few times each
+day. On small networks you can crawl each hour. Network traffic will still be
+low, as only new hosts will be contacted in this case.
+
+If a host is not reachable, a flag is set in the database. The crawler checks
+this flag  and tries to reach the host the next time. Once a certain limit
+is reached the host will be deleted from the database. This limit can be
+defined sperately for SMB and FTP in femfind.conf. The expire flag is cleared
+after each successful crawl.
+
+
+INSTALLATION
+
+FemFind has only been tested on Linux. I know of no reasons why it shouldn't
+work on other UNIXes. Feedback is appreciated if you test it somewhere else!
+
+What you need to have installed:
+Samba [0]
+MySQL [2]
+
+Optional:
+An httpd if you want to use the web interface
+Some Windows boxes if you want to run the Windows frontend :)
+
+Because some Perl modules have to be installed you should run the install
+script as root.
+
+
+A) Installing The Crawler - The Easy Way
+
+As of v0.71 FemFind comes with a shell script for easy installing. Although
+it has not been tested on many platforms yet I recommend that you use this
+script. Please report any problems you encounter to me.
+
+These Perl modules are required by FemFind:
+Msql-Mysql-modules [3] (which requires DBI [4] and Data-ShowTable [5])
+libnet (for Net::FTP) [6]
+Time::HiRes [7]
+
+You can let the install script try to install these modules for you, or install
+them before you run the script.
+
+  ATTENTION: When installing libnet, Perl's CPAN installer sometimes tries to
+             install Perl 5.6. If this happens, just download and install the
+             libnet module [6] manually and then re-run the install script.
+			 
+- Depack FemFind-0.72.tar.gz
+    gzip -cd FemFind-0.72.tar.gz | tar xf -
+    cd FemFind-0.72
+	
+- Edit femfind.conf and set all the variables that are in the first section.
+  Please note that femfind.conf will be placed in /etc later, so if you want to
+  change your configuration after you have run install.sh be sure to alter
+  that file.
+
+- Now run install.sh. This script will...
+    o try to determine your Perl path, and modify the first line of each .pl
+      file accordingly
+    o install the required Perl modules via CPAN on request
+    o install the FemFind modules
+    o copy femfind.conf to /etc
+    o run the database setup
+
+- Database setup: This Perl script sets up MySQL for FemFind. It generates
+  two users ('search' and db_crawler_login as specified in femfind.conf)
+  and the database db_name (you know where to change this ;)
+
+First crawl and crontab setup
+
+- Recommended: Don't do the following as root. Choose a user for FemFind
+  (maybe create a new one) and edit this users crontab. You don't need to
+  run FemFind as root, and unless you don't care about security there's no
+  good reason to do so.
+  (You will have to chown the crawler.pl to your new user)
+
+- Now you should test if you have everything set up properly by running
+  'crawler.pl --complete'. You might want to time execution for the next step,
+  the crontab setup. If there is a problem at this point, you should check the
+  logfile first. If there is nothing helpful in there, try setting the
+  debuglevel to 3 and re-run the crawler.
+
+- Edit your crontab: Depending on how large your network is you have to define
+  how often and at what time to invoke the crawler. Here's an example:
+  
+        0 13 * * * /home/femfind/crawler.pl --complete
+        0 7,10,13,16,19 * * * /home/femfind/crawler.pl --incremental
+  
+  This executes the script in complete crawl mode once at 13:00, runs the
+  incremental crawls 5 times and gives each at least 3 hours to complete.
+  
+  Please notice that the complete crawl will take significantly longer than the
+  incremental crawls.
+  
+  If you want to optimize search results run 'crawler.pl --complete' at a time
+  when most hosts are online OR try to cover the whole day with your scans
+  (works good on small networks).
+  
+  If you want to minimize interferences with your network/servers and most of
+  your servers run 24/7 anyway you might want to do the complete crawl at night
+  and spread a few incremental crawls over the day.
+  
+  The crawler detects if another instance is still running and terminates, thus
+  avoiding an inconsistent database. 
+
+Crawler working? Now install the webinterface (Section C) or the Winclients (D).
+
+  
+B) Installing The Crawler - The Old (Hard?) Way
+
+These Perl modules are required by FemFind:
+Msql-Mysql-modules [3] (which requires DBI [4] and Data-ShowTable [5])
+libnet (for Net::FTP) [6]
+Time::HiRes [7]
+
+Make sure you have these installed.
+
+- Create a directory and put crawler.pl and femfind.conf in it.
+  Make sure the rights are correctly set so that the cron demon can invoke
+  the crawler.pl script and femfind.conf can be read by everybody.
+
+  Edit the first line of crawler.pl if you have Perl installed somewhere 
+  else. (Find it out with 'which perl')
+
+- Edit modules/ConfigReader/ConfigReader.pm, line 29 and insert
+  the absolute location of your femfind.conf (default: /etc/femfind.conf)
+  Now run ./makemod from the modules subdirectory. This will build and
+  install the two modules.
+  
+- Edit femfind.conf and set all the variables that are in the first section.
+
+- MySQL setup: You have to setup a database and two users (or one user if you
+  want to use the root account). You can use the mysql_setpermission script
+  that ships with MySQL for this.
+
+  Setup the database (the name must correspond to db_name in femfind.conf)
+  and the first user with option 2. This user needs full access rights
+  (select/update/create). Ofcourse you should password protect that account.
+  You have to insert the password in the crawler.pl script (line 14).
+  Local access is sufficient if the crawler runs on the same machine as the
+  database.
+  
+  The second user name has to be 'search', with no password and only 'select'
+  rights (option 5). The account has to be accessible from the host where you
+  will run your httpd with the search scripts (usually localhost). If you want
+  to use the Windows client, you have to permit logins from all hosts ('%').
+  Note that '%' does not include localhost, you have to enter both.
+  
+- Run 'crawler.pl --tables'. This will create the table structure in the
+  database.
+
+Now continue with 'First crawl and crontab setup' from section A) above.
+
+
+C) Webinterface
+
+- Copy the whole cgi-bin/femfind _directory_ from the distro to your cgi-bin.
+  Adjust the Perl path in the .pl scripts if you didn't use install.sh.
+  
+- Copy the htdocs/femfind directory to your htdocs.
+  
+  Point your browser at
+  http://your.webserver/cgi-bin/femfind/frontpage.pl
+  http://your.webserver/femfind/index.html
+  
+  You can choose either one as the FemFind start page.
+
+- Optional: If you want to have a german language webinterface overwrite
+  the files in your cgi-bin/femfind/ and htdocs/femfind/ directories with the
+  files from german/. Currently no other languages are available.
+  Internationalization will be possible in a future version.
+
+
+D) Windows Client:
+
+- You need at least two servers that are running most of the time.
+  Create a file 'setup' with four lines (do this with DOS/Windows to get
+  CRLF linebreaks):
+  
+  DNS name of the MySQL server
+  login for the server (default: search)
+  password for the account (default: none)
+  name of the database (default: femfind)
+  
+  Example (setup):
+  ---cut here
+  mysqlbox.codefactory.de
+  search
+  
+  femfind
+  ---cut here
+
+- Put 'setup' on your servers.
+
+- Create a file 'femfind.cfg' containing all the locations of your setup files,
+  like so:
+
+  Example (femfind.cfg):
+  ---cut here
+  \\fileserver\femfind\setup
+  \\backup\femfind\setup
+  ---cut here
+
+  You have to distribute this file along with the FemFind Windows client.
+  
+  The obvious advantage of this setup is that whenever you decide to move your
+  database to some other server you only have to change the 'setup' file on a
+  few computers instead of every user having to change the setup.
+  
+  
+Hints:
+- If some special non-us characters (umlauts etc.) do not appear correctly,
+  check your Linux setup. The LC_* variables must be setup according to the
+  language. You can find out current settings with 'locale', 'locale -a'
+  lists all availables locales. Pick the one for your country, set
+  LC_ALL to this value and export it. Now run the crawler again and
+  see if it makes a difference.
+  
+  Example:
+  LC_ALL="de_DE";export LC_ALL;crawler.pl --complete
+
+
+FINETUNING
+
+There are a few things you can configure. Run 'crawler.pl --modify'.
+
+Options:
+1 - Change PreferedTime for SMB Host
+2 - Change PreferedTime for FTP Host
+3 - Exclude SMB host from scanning
+
+The PreferedTime tells the crawler at which time the Host should be crawled.
+You can exclude hosts from crawling with option 3.
+
+
+SECURITY
+
+FemFind is still in beta stage. It has not really been designed with security
+in mind. Some things have been implemented (no symlink following etc.), but
+might not work yet! The author is not responsible for any damages the
+program might cause.
+
+Please read the next section for further info.
+
+
+KNOWN BUGS
+
+- Linux shares that contain symlinks to the . directory or similiar
+  constructions will lead to a neverending crawl (Example: SuSE distro). This is
+  no FemFind bug. The problem is that Samba does not differentiate between
+  directories and symlinks. Temporary solution: Exclude hosts with such links
+  from scanning by running 'crawler.pl --modify'
+  (see: Finetuning)
+  UPDATE: You can disable symlink following on a per-share basis with SAMBA.
+          (In SWAT, choose Advanced View)
+          This should fix the problem.
+
+- There's one known reproducable incident where Samba failed to crawl a large
+  share correctly. This seems to be a bug in the smbclient.
+
+- crawler.pl cleanup does not check if the temp file really exists when it tries
+  to unlink. You can ignore the resulting error message.
+
+- there's no possibility to remove entries from femfind.mod from the
+  'crawler.pl --modify' menu, you can only edit the textfile
+
+- some special characters will not appear correctly
+
+
+VERSION HISTORY
+
+New versions will be released on Freshmeat [8] and my website [9].
+
+FemFind-0.74.tar.gz
+
+- fixed a bug in the ftp crawler, now files with spaces aren't ignored
+  (thanx Dennis)
+
+FemFind-0.73.tar.gz
+
+- new options: disable_ftp and disable_smb
+- install.sh now explicitly installs the DBI module from CPAN
+- improvements, small fixes in Helper.pm and ConfigReader.pm
+- lowered FTP connect timeout and better error handling
+
+FemFind-0.72.tar.gz
+
+- new option: search hidden default shares (NT) (yes/no, default is no)
+              see femfind.conf  
+- empty hosts will be removed from the database
+- improved logging (timestamp, commandline)
+
+FemFind-0.71.tar.gz
+
+- FTP host list is now sorted
+- restructured modules (now in 'FemFind::' hierarchy), converted them to real
+  modules (Makefile.PL etc.)
+- new module 'Helper' added, which contains some common subs
+- femfind.conf moved to /etc
+- changed some femfind.conf options, please DO NOT use your old file!
+- added install.sh script that does most of the work
+- added database setup script (makedb.pl)
+- 'crawler' mysql password no longer stored in femfind.conf
+- configurable user/password for connecting to shares (femfind.conf)
+  (you can now setup your intranet with security=domain and generate an
+   account for femfind that can read access all hosts)
+- auto detection of MySQL stats (no more editing offsets in frontpage.pl)
+- FTP servers can be added with WINS name, DNS name or IP
+- get_ip resolves WINS, DNS, IP correctly (not just using nmblookup which caused
+  problems with some WINS hosts)
+- more robust: bizarre workgroup-, host- and sharenames containing
+  "$", "'",  "`", "|" or spaces (!) should work fine (but never say never :)
+
+FemFind-0.70.tar.gz
+
+- new command line syntax, please adjust your crontabs and minds
+- brand new HTML pages, thanx to Fire
+- new options: show directories only, user defined hits p/page in advanced mode
+- display of a redirection page if MySQL server is currently down
+  (new parameter in femfind.conf - backup_url)
+- two bugs fixed in search3.pl
+
+FemFind-0.68.tar.gz
+
+- initial public release
+
+
+FemFind-winclient-0.65.zip
+
+- initial public release
+
+
+WHAT NEXT?
+
+There are quite a few plans on how FemFind could evolve.
+
+- redesign of the crawler for more flexibility in host inclusion/exclusion
+- support for robots.txt
+- rewrite of the Windows client
+- support for internationalization in both the webinterface and windows client
+- storage abstraction layer: store your data in other databases (or even
+  in your reiserfs)
+- a modular redesign and rewrite which fully utilizes Perl's OOP facilities
+  (sorry, I don't plan to go C++ or Java, I'm just too productive in Perl *g*)
+- replacing smbclient calls with Alain Barbet's SmbClientParser module
+  as soon as libsmb hits the streets
+
+If there's something you think is missing in FemFind don't hesitate telling me.
+
+
+LICENSE & COPYRIGHT
+
+HTML Design Copyright (C) 2000 Ralf Prescher
+All the rest Copyright (C) 1999, 2000 Martin Richtarsky
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+
+FEEDBACK
+
+If you use FemFind, please let me know (email below).
+Feedback, be it negative or positive, is always appreciated, certainly
+it will motivate me to improve FemFind.
+
+Mail me if anything in this README is unclear to you or you think something's
+missing.
+
+Email: femfind@codefactory.de
+
+
+LINKS
+  
+[0] http://www.samba.org/
+
+[1] http://www.fem.tu-ilmenau.de/
+
+[2] http://www.mysql.org/
+
+[3] http://www.perl.com/CPAN/authors/id/JWIED/Msql-Mysql-modules-1.2214.tar.gz
+    Bundle::DBD::mysql
+    
+[4] http://www.perl.com/CPAN/authors/id/TIMB/DBI-1.14.tar.gz
+    Bundle::DBI 
+
+[5] http://www.perl.com/CPAN/authors/id/AKSTE/Data-ShowTable-3.3.tar.gz
+	
+[6] http://www.perl.com/CPAN/authors/id/GBARR/Bundle-libnet-1.00.tar.gz     
+    Bundle::libnet
+	
+[7] http://www.perl.com/CPAN/authors/id/DEWEG/Time-HiRes-01.20.tar.gz
+
+[8] http://www.freshmeat.net/
+
+[9] http://femfind.codefactory.de/
