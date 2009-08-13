@@ -1,15 +1,14 @@
 body {
 	background-color: #fff; 
 	color: #333;
-	font-family: "Arial";
+	font-family: Arial, Verdana, Helvetica, sans-serif;
 }
 
 img {
 	border: 0px;
 }
 
-body, p, td {
-	font-family: Arial, Verdana, Helvetica, sans-serif;
+body, p, td, th {
 	font-size: 13px;
 	line-height: 14px;
 }
@@ -19,48 +18,37 @@ td.menu, td.menu_active {
 	padding: 2px;
 	background-color: #f0f0f0;
 	font-weight: bold;
-	border-left: 1px solid black;
-	border-right: 1px solid black;
+	border-left: 1px solid gray;
+	border-right: 1px solid gray;
+}
+
+td.menu a, td.menu_active a {
+	color: #333333;
 }
 
 td.menu_active {
 	font-weight: normal;
 	background-color: #99CCFF;
-}
-
-table {
-	border-spacing: 5px;
-	padding: 5px;
-	border-collapse: collapse;
-}
-
-tr  {
-	border-bottom: 1px solid;
-	border-top: 1px solid
+	border-bottom: 1px solid #99CCFF;
 }
 
 td, th {
+	border: 1px solid gray;
 	padding: 5px;
-	border-left: 1px solid gray;
-	border-right: 1px solid gray;
 }
 
-a {
-	color: #000;
+a, a:visited {
+	color: gray;
 	text-decoration: none;
-	padding: 4px 4px 4px 4px;
+	padding: 2px;
 }
 
 a:hover {
 	text-decoration: underline;
 }
 
-a:visited {
-	color: #333333;
-}
-
 table {
-	border: 1px;
+	border: 1px solid gray;
 	border-style: solid;
 	padding-left: 15px;
 	line-height: 30px;
@@ -75,11 +63,6 @@ table.searchbox {
 
 table.searchbox tr td {
 	padding: 5px;
-}
-
-
-tr.searchbox:hover {
-	background-color: white;
 }
 
 div.logo {
