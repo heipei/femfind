@@ -94,10 +94,10 @@ $c{limit} = "LIMIT $c{offset}, $c{num_last}";
 if ($c{online})
 {
 	$c{online_pre} = '<img src="/femfind/';
-	$c{online_post} = '.gif" height=12 width=12 border=0>';
+	$c{online_post} = '.gif" border=0>';
 }
-$c{img_folder} = '<img src="/femfind/folder.gif" width=16 height=16>';
-$c{img_doc} = '<img src="/femfind/doc.gif" width=16 height=16>';
+$c{img_folder} = '<img src="/femfind/folder.gif">';
+$c{img_doc} = '<img src="/femfind/doc.gif">';
 
 ##
 ## searchstring
@@ -179,30 +179,24 @@ if ($user_env{maxfilesize} =~ m/^\s*(\d+)\s*$/)
 	$c{searchstring_files} .= " AND FileSize<$1";
 }
 
-my $style = "
-.b  { text-decoration:none; color:#000000; font-family: Verdana,Arial,Helvetica; font-size: 11px;}\
-A   { text-decoration:none; color:#0033ff; font-family: Verdana,Arial,Helvetica; font-size: 11px;}\
-a:link, a:visited {text-decoration:none}";
-
+my $style = "style.css";
 
 print $q->header(-cookie=>$cookie),
-$q->start_html({-title => "FemFind - To search is human, to find divine ;)",
+$q->start_html({-title => "Alania Filesuche",
 -bgcolor=>"#dddddd",
 -style=>"$style"});
 print "$cookie" if ($debug);
 $_ = $q->param('searchstring');
 
 print qq{
-<table width="100%" border="0" cellspacing="0" cellpadding="1">
-<tr bgcolor="#888888">
-<td valign="top">
-<table border="0" cellspacing="0" cellpadding="3" width="100%">
-<tr bgcolor="#99CCFF">
-<td valign="top" class="b"><b>Ergebnis f&uuml;r [$_]</b></td>
-</tr>
-<tr bgcolor="#dddddd">
-<td valign="top" class="b">
-<font face="helvetica,verdana,arial" size="3" color="#303088">
+<div class="logo">
+	<a href="./?form=basic"><img src="logo.png" alt="Alania" style="float:left"></a><h2>Alania Filesearch</h2>
+</div>
+
+<div class="content">
+<table width="100%">
+<tr style="background-color: #99CCFF"><th>Ergebnis f&uuml;r [$_]</th></tr>
+<tr style="background-color: #dddddd"><td>
 };					
 
 debug() if ($debug);
@@ -298,13 +292,13 @@ if ($c{file_skip} ne 'on')
 			if ($PID{$out[0]}->[3] == $c{SMB})
 			{
 				$_ = $PID{$out[0]};
-				my $path = "file://$_->[0]/$_->[1]$_->[2]/";            									
+				my $path = "file://///$_->[0]/$_->[1]$_->[2]/";            									
 				my $out = "$c{online_pre}$host_alive{$_->[0]}$c{online_post}$c{img_doc}" .
-				$q->a({-href => $path, target => "ff_res"}, $path) .
-				'&nbsp'.
+				$q->a({-href => $path}, $path) .
 				$q->a({-href => "$path$out[1]"}, $out[1]) .
-				$q->font({-size=>"2", -color=>"#888888"}, "&nbsp;&nbsp;&nbsp;&nbsp;$out[2] | $out[3]") .
-				$q->br;
+				$q->font({-size=>"2", -color => "#c0c0d0"}, "&nbsp;&nbsp;$out[2] | $out[3]") .
+				$q->br.
+				"\n";
 				$output .= $out;
 			}
 			else
@@ -321,7 +315,7 @@ if ($c{file_skip} ne 'on')
 				$q->a({-href => "ftp://$FTP{$_}$path", target => "ff_res"}, "ftp://$_$path") .
 				'&nbsp;' .
 				$q->a({-href => "ftp://$FTP{$_}$path$out[1]"}, $out[1]) .
-				$q->font({-size=>"2", -color=>"#888888"}, "&nbsp;&nbsp;&nbsp;&nbsp;$out[2] | $out[3]") . $q->br;
+				$q->font({-size=>"2" }, "&nbsp;&nbsp;&nbsp;&nbsp;$out[2] | $out[3]") . $q->br;
 				$output .= $out;
 			}
 			$c{hits}++;
@@ -353,9 +347,9 @@ if ($c{hits} < $c{num_hits_displayed})
 		}
 		if ($row[3] == $c{SMB})
 		{
-			my $line = "file://$row[0]/$row[1]$row[2]/";
+			my $line = "file://///$row[0]/$row[1]$row[2]/";
 			my $out = "$c{online_pre}$host_alive{$row[0]}$c{online_post}  " .
-			$c{img_folder} . $q->a({-href => $line, target => "ff_res"}, $line) . $q->br;
+			$c{img_folder} . $q->a({-href => $line, -class => "file"}, $line) . $q->br;
 			$output .= $out;
 		}
 		else
@@ -392,28 +386,22 @@ print qq{
 $c{control}
 <p>
 <i><font color="#902020">$treffer</font></i>
-<p>
+</p>
+<p class="files">
 $output
 };
 
 my $time = sprintf "%.2f", gettimeofday-$c{time_start};
 print qq{
+</p>
 <p>
 <b>$c{hits} Treffer in $time sec</b>
-<p>
+</p>
 $c{control}
-</font>
-</td>
-</tr>
-<tr bgcolor="#99CCFF">
-<td valign="top" class="b">FemFind v$c{VERSION} [$c{VDATE}] Copyright Martin Richtarsky
-[<a href="http://www.codefactory.de/">www</a>|<a href="mailto:femfind\@codefactory.de">mail</a>]
 </td>
 </tr>
 </table>
-</td>
-</tr>
-</table>
+</div>
 };
 
 $db->disconnect();

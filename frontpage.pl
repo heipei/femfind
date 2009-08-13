@@ -16,10 +16,7 @@ my $prev = "| ";
 my $prev_add = "";
 
 my $prev_start = qq{
-    <table width="620" border="0" cellspacing="0" cellpadding="1">
-    <tr bgcolor="#888888">
-        <td valign="top">
-	<table width="618" border="0" cellspacing="0" cellpadding="4">
+    <table width="620">
             <tr bgcolor="#99CCFF">
 	    <td valign="top" class="b"><b>Your History</b></td>
             </tr>
@@ -28,9 +25,6 @@ my $prev_start = qq{
 };
 
 my $prev_end = qq{
-	    </td>
-            </tr>
-	</table>
         </td>
 	</tr>
     </table>
@@ -63,7 +57,7 @@ if (!defined %user_env)
     s/#chk_normal/ checked/;
     s/#chk_wildcards//;
     s/#chk_regex//;
-    s/#chk_online//;
+    s/#chk_online/checked/;
     s/#chk_startdate//;
     s/#chk_cookie//;
     s/#minfilesize//;
@@ -75,7 +69,7 @@ if (!defined %user_env)
 else
 {
     my $sel = " selected";
-    my $chk = " checked";    	
+    my $chk = " checked=\"checked\"";    	
     my $chk_normal = "";
     my $chk_wildcards = "";
     my $chk_regex = "";
