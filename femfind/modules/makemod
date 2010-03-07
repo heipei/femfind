@@ -1,0 +1,6 @@
+#!/bin/sh
+cd ConfigReader
+(perl Makefile.PL && make && make install) || (echo "Error!")
+cd ../Helper
+(perl Makefile.PL && make && make install) || (echo "Error!")
+

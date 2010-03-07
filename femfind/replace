@@ -1,0 +1,17 @@
+use strict;
+
+open(IN, "<$ARGV[0]") || die "Could not open source file!\n";
+my @content = <IN>;
+close IN;
+open(OUT, ">$ARGV[0]") || die "Could not write to file!\n";
+foreach (@content)
+{
+    if (/^\Q$ARGV[1]/)
+    {
+	print OUT "$ARGV[2]\n";
+    }
+    else
+    {
+	print OUT $_;
+    }
+}
